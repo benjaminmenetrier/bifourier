@@ -73,13 +73,34 @@
 
 \clearpage
 
-\section*{Introduction}
+\section{General description}
 
-This documents describes the \texttt{Bifourier} blocks implemented in the SABER library to apply a static background error covariance matrix in spectral space. The code is a generalization of the implementation of \cite{berre_2000}.
+This documents describes the \texttt{Bifourier} blocks implemented in the SABER library to apply a static background error covariance matrix in spectral space. This code generalizes the Fortran implementation of \cite{berre_2000} in the ALADIN/AROME model.\\
+$  $\\
+List of central blocks:
+\begin{itemize}
+\item \texttt{BifourierCovariance}: univariate, homogenous and isotropic covariance.
+\item \texttt{BifourierId}: identity (specific for spectral space).
+\end{itemize}
+$  $\\
+List of outer blocks:
+\begin{itemize}
+\item \texttt{BifourierBalance}: balance operator.
+\item \texttt{BifourierCatTPs}: concatenatenation of temperature and surface pressure fields.
+\item \texttt{BifourierGridToSpectral}: forward spectral transform.
+\item \texttt{BifourierSpectralToGrid}: inverse spectral transform.
+\item \texttt{BifourierVorDivToUV}: conversion from vorticity/divergence to wind.
+\item \texttt{BifourierVorToPb}: addition of balanced pressure, computed from vorticity (and the backward operation).
+\end{itemize}
+$  $\\
+List of auxillary classes:
+\begin{itemize}
+\item \texttt{BifourierAromeLegacy}: reading and processing of AROME files (in binary or NetCDF format), to use their data in the \texttt{BifourierBalance} and \texttt{BifourierCovariance} blocks.
+\item \texttt{BifourierTransform}: spectral transform, parallelization, derivatives, etc.
+\item \texttt{BifourierTransformStore}: storage of \texttt{BifourierTransform} objects to avoid redundant setups.
+\end{itemize}
 
 \section{Spectral transform}
-
-This section details the spectral transform characteristics.
 
 \subsection{Parallelization}
 
@@ -95,7 +116,7 @@ The first step is a global communication (\texttt{MPI\_Alltoallv}) to make sure 
 \includegraphics[width=0.5\textwidth]{step1.pdf}
 \end{center}
 
-The second step is a FFT along each row, leading to two arrays of size $n_k \times n_y$ for real and imaginary components:
+The second step is a FFT along each row, leading to two arrays (real and imaginary components) of size $n_k \times n_y$:
 
 \begin{center}
 \includegraphics[width=0.6\textwidth]{step2.pdf}
@@ -107,19 +128,19 @@ The third step is a global communication (\texttt{MPI\_Alltoallv}) to make sure 
 \includegraphics[width=0.6\textwidth]{step3.pdf}
 \end{center}
    
-The fourth step is a FFT along each column, leading to four arrays of size $n_k \times n_l$ for real/real, real/imaginary, imaginary/real and imaginary/imaginary components:
+The fourth step is a FFT along each column, leading to four arrays (real/real, real/imaginary, imaginary/real and imaginary/imaginary components) of size $n_k \times n_l$:
    
 \begin{center}
 \includegraphics[width=0.6\textwidth]{step4.pdf}
 \end{center}
 
-The fifth step is the removal of redundant spectral coefficients because the input field is real. It is easy to check that the number of remaining spectral cofficients is exactly equal to the number of input grid points in physical space (same number of degrees of freedom):
+The fifth step is the removal of redundant spectral coefficients because the input field is real. It is easy to check that the number of remaining spectral cofficients is precisely equal to the number of input grid points in physical space (same number of degrees of freedom):
 
 \begin{center}
 \includegraphics[width=0.6\textwidth]{step5.pdf}
 \end{center}
 
-The sixth step is an elliptic truncation on spectral wavenumber to ensure isotropy:
+The sixth step is an elliptic truncation on spectral wavenumbers to ensure isotropy:
 \begin{center}
 \includegraphics[width=0.6\textwidth]{step6.pdf}
 \end{center}
@@ -138,7 +159,7 @@ The spectral transforms based on FFTW are not normalized, so a the spectral coef
 
 \subsection{Parseval's identity}
 
-The Parseval's identity states that the canonical norm (i.e. squared canonical inner product of a field with itself) is the same in physical and spectral spaces. To verify the Parseval's identity with the decomposition described above, is is necessary to multiply each spectral coefficients at the end of the forward process by number of remaining component after the fifth step for its own $(k,l)$. For instance here:
+The Parseval's identity states that the canonical norm (i.e. the squared canonical inner product of a field with itself) is the same in physical and spectral spaces. To verify the Parseval's identity with the decomposition described above, is is necessary to multiply each spectral coefficients at the end of the forward process by the number of remaining components after the fifth step for its own $(k,l)$. For instance here:
 \begin{itemize}
 \item spectral coefficient for $(k,l) = (0,0)$ is multiplied by 1,
 \item spectral coefficients for $(k,l) = (1,0)$ is multiplied by 2,
@@ -149,38 +170,45 @@ The Parseval's identity states that the canonical norm (i.e. squared canonical i
 
 Of course, the input spectral coefficients must be divided by the same amount at the beginning of the inverse process. This operation has one major advantage: the adjoint of the forward process is now equivalent to the inverse process.
 
-\section{Vorticity / divergence to physical wind}
+\subsection{Total wavenumber}
+
+To ensure isotropy, all the B matrix operators are based on the total wavenumber $k^\star$:
+\begin{align}
+k^\star(k,l) = \max(n_k-1, n_l-1) \sqrt{\frac{k^2}{(n_k-2)^2} + \frac{l^2}{(n_l-2)^2}}
+\end{align}
+
+\section{Vorticity / divergence to wind}
 
 \subsection{Derivatives}
 
 In spectral space, computing derivatives is straightforward. Assuming that each spectral coefficient is defined by the triplet $(k,l,q)$:
 \begin{itemize}
-\item Derivative in X direction: $\mathbf{s}_\text{out} = \mathbf{D}_x \mathbf{s}_\text{in}$ with
+\item Derivative in zonal direction: $\mathbf{s}_\text{out} = \mathbf{D}_x \mathbf{s}_\text{in}$ with
 \begin{subequations}
 \begin{align}
-\mathbf{s}_\text{out}(k,l,0) & = \frac{2 k \pi}{L_x} \ \mathbf{s}_\text{in}(k,l,2) \\
-\mathbf{s}_\text{out}(k,l,1) & = \frac{2 k \pi}{L_x} \ \mathbf{s}_\text{in}(k,l,3) \\
-\mathbf{s}_\text{out}(k,l,2) & = -\frac{2 k \pi}{L_x} \ \mathbf{s}_\text{in}(k,l,0) \\
-\mathbf{s}_\text{out}(k,l,3) & = -\frac{2 k \pi}{L_x} \ \mathbf{s}_\text{in}(k,l,1)
+\mathbf{s}_\text{out}(k,l,0) & = \frac{2 \pi k}{L_x} \ \mathbf{s}_\text{in}(k,l,2) \\
+\mathbf{s}_\text{out}(k,l,1) & = \frac{2 \pi k}{L_x} \ \mathbf{s}_\text{in}(k,l,3) \\
+\mathbf{s}_\text{out}(k,l,2) & = -\frac{2 \pi k}{L_x} \ \mathbf{s}_\text{in}(k,l,0) \\
+\mathbf{s}_\text{out}(k,l,3) & = -\frac{2 \pi k}{L_x} \ \mathbf{s}_\text{in}(k,l,1)
 \end{align}
 \end{subequations}
-where $L_x$ is the domain width in the X direction.
-\item Derivative in Y direction: $\mathbf{s}_\text{out} = \mathbf{D}_y \mathbf{s}_\text{in}$ with
+where $L_x$ is the domain width in the zonal direction.
+\item Derivative in meridional direction: $\mathbf{s}_\text{out} = \mathbf{D}_y \mathbf{s}_\text{in}$ with
 \begin{subequations}
 \begin{align}
-\mathbf{s}_\text{out}(k,l,0) & = \frac{2 l \pi}{L_y} \ \mathbf{s}_\text{in}(k,l,1) \\
-\mathbf{s}_\text{out}(k,l,1) & = -\frac{2 l \pi}{L_y} \ \mathbf{s}_\text{in}(k,l,0) \\
-\mathbf{s}_\text{out}(k,l,2) & = \frac{2 l \pi}{L_y} \ \mathbf{s}_\text{in}(k,l,3) \\
-\mathbf{s}_\text{out}(k,l,3) & = -\frac{2 l \pi}{L_y} \ \mathbf{s}_\text{in}(k,l,2)
+\mathbf{s}_\text{out}(k,l,0) & = \frac{2 \pi l}{L_y} \ \mathbf{s}_\text{in}(k,l,1) \\
+\mathbf{s}_\text{out}(k,l,1) & = -\frac{2 \pi l}{L_y} \ \mathbf{s}_\text{in}(k,l,0) \\
+\mathbf{s}_\text{out}(k,l,2) & = \frac{2 \pi l}{L_y} \ \mathbf{s}_\text{in}(k,l,3) \\
+\mathbf{s}_\text{out}(k,l,3) & = -\frac{2 \pi l}{L_y} \ \mathbf{s}_\text{in}(k,l,2)
 \end{align}
 \end{subequations}
-where $L_y$ is the domain width in the Y direction.
+where $L_y$ is the domain width in the meridional direction.
 \end{itemize}
 In both directions, $\mathbf{s}_\text{out}(k,l,q)$ is set to zero if the corresponding $\mathbf{s}_\text{in}$ component has been removed at step five of the forward process.
 
 \subsection{Laplacian}
 
-The Laplacian operator and its inverse are even simpler:
+The Laplacian operator and its inverse are even simpler to compute:
 \begin{itemize}
 \item Forward Laplacian: $\mathbf{s}_\text{out} = \mathbf{L} \mathbf{s}_\text{in}$ with
 \begin{align}
@@ -228,10 +256,42 @@ v & = \mathbf{D}_x \psi + \mathbf{D}_y \chi
 \end{align}
 \end{subequations}
 
-\section{Balance operator}
+\section{Balance and covariance operators}
 
-\section{Covariance operator}
+A general description of balance operators is available here: \url{https://github.com/benjaminmenetrier/vertical_balance/blob/main/vertical_balance.pdf}\\
 
+In the spectral framework, balance operators are designed with a vertical regression matrix for each total wavenumber $k^\star$. While the \texttt{BifourierBalance} block code is generic enough to handle any balance configuration, the standard one \cite{berre_2000} is given by:
+
+\begin{align}
+\left( \begin{array}{c}
+P_b \\
+\delta \\
+(T, P_s) \\
+q
+\end{array} \right) = \left( \begin{array}{cccc}
+\mathbf{I} & 0 & 0 & 0 \\
+\mathbf{M} & \mathbf{I} & 0 & 0 \\
+\mathbf{N} & \mathbf{P} & \mathbf{I} & 0 \\
+\mathbf{Q} & \mathbf{R} & \mathbf{S} & \mathbf{I} \\
+\end{array} \right)
+\left( \begin{array}{c}
+P_b \\
+\delta_u \\
+(T_u, P_{su}) \\
+q_u
+\end{array} \right)
+\end{align}
+with:
+\begin{itemize}
+\item $P_b$: balanced pressure, defined by $P_b = \mathbf{H} \zeta$
+\item $\zeta$: vorticity
+\item $\delta$: divergence
+\item $(T,P_s)$: concatenation of temperature and surface pressure at the bottom
+\item $q$: specific humidity
+\end{itemize}
+The subscript $u$ denotes the unbalanced variables.\\
+$  $\\
+The univariate covariance operator is designed with a vertical covariance matrix for each total wavenumber $k^\star$, but its actually its square-root that is stored and applied (adjoint and forward successively).
 
 \bibliographystyle{mybib-en}
 \bibliography{bifourier}
