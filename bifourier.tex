@@ -77,21 +77,26 @@
 
 This documents describes the \texttt{Bifourier} blocks implemented in the SABER library to apply a static background error covariance matrix in spectral space. This code generalizes the Fortran implementation of \cite{berre_2000} in the ALADIN/AROME model.\\
 $  $\\
-List of central blocks:
+List of spectral central blocks:
 \begin{itemize}
 \item \texttt{BifourierCovariance}: univariate, homogenous and isotropic covariance.
 \item \texttt{BifourierId}: identity (specific for spectral space).
 \end{itemize}
 $  $\\
-List of outer blocks:
+List of spectral outer blocks:
 \begin{itemize}
 \item \texttt{BifourierBalance}: balance operator.
 \item \texttt{BifourierCatTPs}: concatenatenation of temperature and surface pressure fields.
 \item \texttt{BifourierGridToSpectral}: forward spectral transform.
-\item \texttt{BifourierRedWindToGeoWind}: conversion from reduced wind to geographical wind.
 \item \texttt{BifourierSpectralToGrid}: inverse spectral transform.
 \item \texttt{BifourierVorDivToRedWind}: conversion from vorticity/divergence to reduced wind.
 \item \texttt{BifourierVorToPb}: addition of balanced pressure, computed from vorticity (and the backward operation).
+\end{itemize}
+$  $\\
+List of non-spectral outer blocks:
+\begin{itemize}
+\item \texttt{Biperiodization}: biperiodization of 2D fields.
+\item \texttt{RedWindToGeoWind}: conversion from reduced wind to geographical wind.
 \end{itemize}
 $  $\\
 List of auxillary classes:
@@ -99,6 +104,7 @@ List of auxillary classes:
 \item \texttt{BifourierAromeLegacy}: reading and processing of AROME files (in binary or NetCDF format), to use their data in the \texttt{BifourierBalance} and \texttt{BifourierCovariance} blocks.
 \item \texttt{BifourierTransform}: spectral transform, parallelization, derivatives, etc.
 \item \texttt{BifourierTransformStore}: storage of \texttt{BifourierTransform} objects to avoid redundant setups.
+\item \texttt{BiperiodizationImpl}: biperiodization implementation.
 \end{itemize}
 
 \section{Spectral transform}
@@ -226,6 +232,10 @@ and $\mathbf{s}_\text{out}(0,0,0) = 0$
 
 We denote:
 \begin{itemize}
+\item $\lambda$: longitude
+\item $\varphi$: latitude
+\item $u$: eastward wind
+\item $v$: northward wind
 \item $u_g$: geographical wind in $x$ direction
 \item $v_g$: geographical wind in $y$ direction
 \item $u_r$: reduced wind in $x$ direction
@@ -236,7 +246,20 @@ We denote:
 \item $\delta$: divergence
 \end{itemize}
 
-The geographical wind $(u_g, v_g)$ is the wind along the grid in $x$ and $y$ direction, and might be different from the eastward and northward wind $(u, v)$.\\
+The spherical wind $(u, v)$ are related to the geographical wind $(u_g, v_g)$ through the grid projection Jacobian:
+\begin{subequations}
+\begin{align}
+u & = \alpha_\lambda \left(\frac{\partial x}{\partial \lambda} u_g + \frac{\partial y}{\partial \lambda} v_g\right) \\
+v & = \alpha_\varphi \left(\frac{\partial x}{\partial \varphi} u_g + \frac{\partial y}{\partial \varphi} v_g\right)
+\end{align}
+\end{subequations}
+where $\alpha_\lambda$ and $\alpha_\varphi$ are normalization coefficients:
+\begin{subequations}
+\begin{align}
+\alpha_\lambda & = \left(\left(\frac{\partial x}{\partial \lambda}\right)^2 + \left(\frac{\partial y}{\partial \lambda}\right)^2\right)^{-1/2} \\
+\alpha_\varphi & = \left(\left(\frac{\partial x}{\partial \varphi}\right)^2 + \left(\frac{\partial y}{\partial \varphi}\right)^2\right)^{-1/2} \\
+\end{align}
+\end{subequations}
 
 The reduced wind is equal to the geographical wind divided by the local map factor $m$:
 \begin{subequations}
@@ -246,7 +269,7 @@ v_r & = \frac{v_g}{m}
 \end{align}
 \end{subequations}
 
-Computing $(\zeta, \delta)$ from reduced wind is straightforward:
+Computing $(\zeta, \delta)$ from reduced wind is then straightforward:
 \begin{subequations}
 \begin{align}
 \zeta & = \mathbf{D}_x v_r - \mathbf{D}_y u_r \\
