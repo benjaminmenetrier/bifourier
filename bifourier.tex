@@ -88,8 +88,9 @@ List of outer blocks:
 \item \texttt{BifourierBalance}: balance operator.
 \item \texttt{BifourierCatTPs}: concatenatenation of temperature and surface pressure fields.
 \item \texttt{BifourierGridToSpectral}: forward spectral transform.
+\item \texttt{BifourierRedWindToGeoWind}: conversion from reduced wind to geographical wind.
 \item \texttt{BifourierSpectralToGrid}: inverse spectral transform.
-\item \texttt{BifourierVorDivToUV}: conversion from vorticity/divergence to wind.
+\item \texttt{BifourierVorDivToRedWind}: conversion from vorticity/divergence to reduced wind.
 \item \texttt{BifourierVorToPb}: addition of balanced pressure, computed from vorticity (and the backward operation).
 \end{itemize}
 $  $\\
@@ -225,19 +226,31 @@ and $\mathbf{s}_\text{out}(0,0,0) = 0$
 
 We denote:
 \begin{itemize}
-\item $u$: zonal wind
-\item $v$: meridional wind
+\item $u_g$: geographical wind in $x$ direction
+\item $v_g$: geographical wind in $y$ direction
+\item $u_r$: reduced wind in $x$ direction
+\item $v_r$: reduced wind in $y$ direction
 \item $\psi$: stream function
 \item $\chi$: velocity potential
 \item $\zeta$: vorticity
 \item $\delta$: divergence
 \end{itemize}
 
-Computing $(\zeta, \delta)$ from $(u, v)$ is straightforward:
+The geographical wind $(u_g, v_g)$ is the wind along the grid in $x$ and $y$ direction, and might be different from the eastward and northward wind $(u, v)$.\\
+
+The reduced wind is equal to the geographical wind divided by the local map factor $m$:
 \begin{subequations}
 \begin{align}
-\zeta & = \mathbf{D}_x v - \mathbf{D}_y u \\
-\delta & = \mathbf{D}_x u + \mathbf{D}_y v
+u_r & = \frac{u_g}{m} \\
+v_r & = \frac{v_g}{m}
+\end{align}
+\end{subequations}
+
+Computing $(\zeta, \delta)$ from reduced wind is straightforward:
+\begin{subequations}
+\begin{align}
+\zeta & = \mathbf{D}_x v_r - \mathbf{D}_y u_r \\
+\delta & = \mathbf{D}_x u_r + \mathbf{D}_y v_r
 \end{align}
 \end{subequations}
 
@@ -251,8 +264,8 @@ The inverse operations requires two steps:
 and
 \begin{subequations}
 \begin{align}
-u & = \mathbf{D}_x \chi - \mathbf{D}_y \psi \\
-v & = \mathbf{D}_x \psi + \mathbf{D}_y \chi
+u_r & = \mathbf{D}_x \chi - \mathbf{D}_y \psi \\
+v_r & = \mathbf{D}_x \psi + \mathbf{D}_y \chi
 \end{align}
 \end{subequations}
 
