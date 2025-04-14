@@ -86,7 +86,7 @@ $  $\\
 List of spectral outer blocks:
 \begin{itemize}
 \item \texttt{BifourierBalance}: balance operator.
-\item \texttt{BifourierCatTPs}: concatenatenation of temperature and surface pressure fields.
+\item \texttt{BifourierCatTPs}: concatenatenation of temperature and logarithm of surface pressure fields.
 \item \texttt{BifourierGridToSpectral}: forward spectral transform.
 \item \texttt{BifourierSpectralToGrid}: inverse spectral transform.
 \item \texttt{BifourierVorDivToRedWind}: conversion from vorticity/divergence to reduced wind.
@@ -313,7 +313,7 @@ q
 \left( \begin{array}{c}
 P_b \\
 \delta_u \\
-(T_u, P_{su}) \\
+(T, P_s)_u \\
 q_u
 \end{array} \right)
 \end{align}
@@ -322,7 +322,7 @@ with:
 \item $P_b$: balanced pressure, defined by $P_b = \mathbf{H} \zeta$
 \item $\zeta$: vorticity
 \item $\delta$: divergence
-\item $(T,P_s)$: concatenation of temperature and surface pressure at the bottom
+\item $(T,P_s)$: concatenation of temperature and logarithm of surface pressure at the bottom
 \item $q$: specific humidity
 \end{itemize}
 The subscript $u$ denotes the unbalanced variables.\\
