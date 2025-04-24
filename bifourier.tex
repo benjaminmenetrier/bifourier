@@ -79,16 +79,18 @@ This documents describes the \texttt{Bifourier} blocks implemented in the SABER 
 $  $\\
 List of spectral central blocks:
 \begin{itemize}
-\item \texttt{BifourierCovariance}: univariate, homogenous and isotropic covariance.
+\item \texttt{BifourierCorrelationHor}: homogenous and isotropic horizontal correlation (separable).
+\item \texttt{BifourierCovariance}: homogenous and isotropic covariance (non-separable).
 \item \texttt{BifourierId}: identity (specific for spectral space).
 \end{itemize}
 $  $\\
 List of spectral outer blocks:
 \begin{itemize}
 \item \texttt{BifourierBalance}: balance operator.
-\item \texttt{BifourierCatTPs}: concatenatenation of temperature and logarithm of surface pressure fields.
+\item \texttt{BifourierCorrelationVer}: vertical correlation (separable).
 \item \texttt{BifourierGridToSpectral}: forward spectral transform.
 \item \texttt{BifourierSpectralToGrid}: inverse spectral transform.
+\item \texttt{BifourierSplitTPs}: split temperature and logarithm of surface pressure fields into separate variables.
 \item \texttt{BifourierVorDivToRedWind}: conversion from vorticity/divergence to reduced wind.
 \item \texttt{BifourierVorToPb}: addition of balanced pressure, computed from vorticity (and the backward operation).
 \end{itemize}
